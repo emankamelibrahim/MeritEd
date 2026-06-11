@@ -107,3 +107,31 @@ This document records every significant architectural decision made during the d
 **Reasoning:** Open instructor registration with no oversight would allow any user to create courses, undermining platform governance.
 
 **Tradeoff:** Requires an Admin to be active and responsive. For MVP where the developer is the Admin, this is trivial. For a real deployment, an approval workflow UI is needed.
+
+---
+
+## AD-11: UUID Primary Keys
+
+**Decision:** All tables use UUID primary keys instead of integer sequences.
+
+**Reasoning:**
+- Avoids exposing record counts in URLs (no sequential /api/courses/1, /api/courses/2)
+- Better for distributed systems and future scaling
+- Modern standard for new PostgreSQL applications
+- Prevents enumeration attacks where an attacker guesses sequential IDs
+
+**Tradeoff:** Slightly larger storage footprint than integers. Negligible at this scale.
+
+---
+
+## AD-12: Quiz Questions Stored as JSONB
+
+**Decision:** Quiz question structure is stored as a JSONB column on the ContentItems table rather than a separate relational QuizQuestions table.
+
+**Reasoning:**
+- PostgreSQL's native JSONB support makes this performant for read-heavy quiz display
+- Quiz questions are always read and written together — no need to query individual questions in isolation
+- Significantly simpler data model for MVP
+- Flexible schema allows different question types without schema migrations
+
+**Tradeoff:** Cannot efficiently query or aggregate individual question-level data (e.g. which question did most students get wrong). A relational QuizQuestions table is planned for V2 when quiz analytics become a requirement.
