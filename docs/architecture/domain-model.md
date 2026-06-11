@@ -172,8 +172,9 @@ A response to a DiscussionThread.
 
 ## Entity Relationship Overview
 
-> ERD diagram will be added here after Stage 4 database design is complete.
+The full ERD is available in [`/docs/design/erd.png`](/docs/design/erd.png).
 
+The live diagram can be viewed and edited at [dbdiagram.io](https://dbdiagram.io) — link saved separately in the design folder.
 ---
 
 ## Identity Classification Rules
