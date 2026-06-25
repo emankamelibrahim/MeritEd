@@ -19,7 +19,17 @@ Represents any authenticated person on the platform.
 **Notes:** Role determines what a user can do, not what they are in the domain. A single User entity with a role discriminator is cleaner than separate Student and Instructor entities at this scale.
 
 ---
+### RefreshToken
+Represents a long-lived credential used to obtain new access tokens without requiring the user to log in again.
 
+**Owns:** token string, expiry date, revoked status, created date.
+
+**Relationships:**
+- A RefreshToken belongs to one User
+
+**Notes:** Not part of the original Stage 3 domain model — introduced during Sprint 1 implementation as a necessary supporting entity for JWT refresh flow. Refresh tokens are rotated on every use: the old token is revoked and a new one issued, limiting the impact of a stolen token.
+
+---
 ### Course
 The central organizing unit of the platform. Everything else belongs to or happens within a Course.
 

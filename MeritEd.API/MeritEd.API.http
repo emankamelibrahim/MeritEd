@@ -1,0 +1,6 @@
+@MeritEd.API_HostAddress = http://localhost:5073
+
+GET {{MeritEd.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

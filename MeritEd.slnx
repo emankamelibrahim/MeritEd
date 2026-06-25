@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="MeritEd.Core/MeritEd.Core.csproj" />
+  <Project Path="MeritEd.API/MeritEd.API.csproj" />
+</Solution>

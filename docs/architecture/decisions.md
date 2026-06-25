@@ -135,3 +135,16 @@ This document records every significant architectural decision made during the d
 - Flexible schema allows different question types without schema migrations
 
 **Tradeoff:** Cannot efficiently query or aggregate individual question-level data (e.g. which question did most students get wrong). A relational QuizQuestions table is planned for V2 when quiz analytics become a requirement.
+
+---
+
+## AD-13: User Entity Inherits from IdentityUser
+
+**Decision:** The User entity in MeritEd.Core inherits from `IdentityUser<Guid>` rather than being built from scratch.
+
+**Reasoning:**
+- ASP.NET Identity provides battle-tested password hashing, lockout, and security stamp behavior
+- Reimplementing secure authentication primitives manually is high risk and low value
+- Guid is used as the key type to match the UUID primary key decision (AD-11)
+
+**Tradeoff:** MeritEd.Core takes on a dependency on `Microsoft.Extensions.Identity.Stores`, technically breaking the "zero infrastructure dependency" rule for Core. This is a deliberate, accepted exception — the alternative (reimplementing Identity) is strictly worse. The lightweight `Identity.Stores` package was chosen specifically over the full `Identity.EntityFrameworkCore` package to minimize what Core depends on.
