@@ -148,3 +148,26 @@ This document records every significant architectural decision made during the d
 - Guid is used as the key type to match the UUID primary key decision (AD-11)
 
 **Tradeoff:** MeritEd.Core takes on a dependency on `Microsoft.Extensions.Identity.Stores`, technically breaking the "zero infrastructure dependency" rule for Core. This is a deliberate, accepted exception — the alternative (reimplementing Identity) is strictly worse. The lightweight `Identity.Stores` package was chosen specifically over the full `Identity.EntityFrameworkCore` package to minimize what Core depends on.
+
+---
+
+## AD-14: Refresh Token Rotation
+
+**Decision:** Every time a refresh token is used to obtain a new access token, the old refresh token is revoked and a new one is issued.
+
+**Reasoning:**
+- Limits the damage if a refresh token is ever stolen — it can only be used once before becoming invalid
+- Standard security practice for JWT-based authentication systems
+- Forces an attacker to act immediately on a stolen token rather than holding it indefinitely
+
+**Tradeoff:** Requires a database write on every refresh, slightly more than a stateless check. Negligible cost for the security benefit gained.
+
+---
+
+## AD-15: Repository Pattern Deferred for Auth
+
+**Decision:** AuthService accesses AppDbContext directly for refresh token operations rather than going through a repository interface.
+
+**Reasoning:** For Sprint 1, refresh token queries are simple single-entity lookups. Introducing a repository abstraction adds a layer of indirection without meaningful benefit at this scale.
+
+**Tradeoff:** Inconsistent with the repository pattern planned for other entities starting Sprint 2. This is a deliberate, temporary simplification — AuthService may be refactored to use a repository once the pattern is established elsewhere, for consistency.

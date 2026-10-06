@@ -1,6 +1,6 @@
-@MeritEd.API_HostAddress = http://localhost:5073
+@baseUrl = https://localhost:7167
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMTlmMDBjNi0yMjQ4LTcxOWUtYTUyYy05M2M3YmNkMGJjZTkiLCJlbWFpbCI6Imluc3RydWN0b3IxQHRlc3QuY29tIiwicm9sZSI6Ikluc3RydWN0b3IiLCJhcHByb3ZlZCI6IkZhbHNlIiwianRpIjoiYmI1OGY1OTAtN2RlMy00ZTlmLWEzODYtNjA1ZjMzMmUxODA5IiwiZXhwIjoxNzgzMTA4ODQxLCJpc3MiOiJNZXJpdEVkIiwiYXVkIjoiTWVyaXRFZCJ9.nqkXfesAhGCXuCvXE9TjBk03xDc_P02JlKsmZdfajQQ
 
-GET {{MeritEd.API_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
+### Test claims
+GET {{baseUrl}}/api/courses/test
+Authorization: Bearer {{token}}

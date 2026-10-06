@@ -1,6 +1,7 @@
 ﻿using MeritEd.API.DTOs.Auth;
 using MeritEd.API.Services;
 using MeritEd.Core.Interfaces.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -103,6 +104,20 @@ public class AuthController : ControllerBase
             DisplayName = user.DisplayName,
             Role = user.Role.ToString(),
             IsApproved = user.IsApproved
+        });
+    }
+    [HttpGet("debug-config")]
+    [AllowAnonymous]
+    public IActionResult DebugConfig()
+    {
+        var key = _configuration["Jwt:Key"];
+        var issuer = _configuration["Jwt:Issuer"];
+        var audience = _configuration["Jwt:Audience"];
+        return Ok(new
+        {
+            keyLength = key?.Length ?? 0,
+            issuer,
+            audience
         });
     }
 }
