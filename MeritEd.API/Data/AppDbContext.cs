@@ -16,6 +16,8 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>
     public DbSet<Section> Sections => Set<Section>();
     public DbSet<ContentItem> ContentItems => Set<ContentItem>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
+    public DbSet<Activity> Activities => Set<Activity>();
+    public DbSet<XPTransaction> XPTransactions => Set<XPTransaction>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

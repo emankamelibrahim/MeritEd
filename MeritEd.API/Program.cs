@@ -2,6 +2,7 @@ using MeritEd.API.Data;
 using MeritEd.API.Services;
 using MeritEd.Core.Entities;
 using MeritEd.Core.Interfaces.Services;
+using MeritEd.Core.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,11 @@ builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<ISectionService, SectionService>();
 builder.Services.AddScoped<IContentItemService, ContentItemService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
+builder.Services.AddScoped<IActivityService, ActivityService>();
+builder.Services.AddScoped<XPService>();
+builder.Services.AddScoped<IdentityService>();
+builder.Services.AddScoped<IProgressService, ProgressService>();
+
 // Identity
 builder.Services.AddIdentityCore<User>(options =>
 {
