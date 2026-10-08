@@ -15,6 +15,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<Section> Sections => Set<Section>();
     public DbSet<ContentItem> ContentItems => Set<ContentItem>();
+    public DbSet<Enrollment> Enrollments => Set<Enrollment>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -44,5 +45,9 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>
         builder.Entity<Quiz>()
             .Property(q => q.AllowsRecovery)
             .HasColumnName("QuizAllowsRecovery");
+
+        builder.Entity<Enrollment>()
+            .HasIndex(e => new { e.StudentId, e.CourseId })
+            .IsUnique();
     }
 }

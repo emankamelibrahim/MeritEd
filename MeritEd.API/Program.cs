@@ -19,6 +19,7 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<ISectionService, SectionService>();
 builder.Services.AddScoped<IContentItemService, ContentItemService>();
+builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 // Identity
 builder.Services.AddIdentityCore<User>(options =>
 {
@@ -63,12 +64,10 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(
             new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
-builder.Services.AddOpenApi();
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
     app.MapScalarApiReference(options =>
     {
         options.WithTitle("MeritEd API");
