@@ -18,6 +18,8 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<XPTransaction> XPTransactions => Set<XPTransaction>();
+    public DbSet<Badge> Badges => Set<Badge>();
+    public DbSet<StudentBadge> StudentBadges => Set<StudentBadge>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -51,5 +53,9 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>
         builder.Entity<Enrollment>()
             .HasIndex(e => new { e.StudentId, e.CourseId })
             .IsUnique();
+
+        builder.Entity<StudentBadge>()
+           .HasIndex(sb => new { sb.EnrollmentId, sb.BadgeId })
+           .IsUnique();
     }
 }

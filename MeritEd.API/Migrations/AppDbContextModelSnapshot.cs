@@ -59,6 +59,43 @@ namespace MeritEd.API.Migrations
                     b.ToTable("Activities");
                 });
 
+            modelBuilder.Entity("MeritEd.Core.Entities.Badge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("IconUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("TriggerType")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TriggerValue")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("XPBonus")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Badges");
+                });
+
             modelBuilder.Entity("MeritEd.Core.Entities.ContentItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -237,6 +274,31 @@ namespace MeritEd.API.Migrations
                     b.HasIndex("CourseId");
 
                     b.ToTable("Sections");
+                });
+
+            modelBuilder.Entity("MeritEd.Core.Entities.StudentBadge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BadgeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("EarnedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EnrollmentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BadgeId");
+
+                    b.HasIndex("EnrollmentId", "BadgeId")
+                        .IsUnique();
+
+                    b.ToTable("StudentBadges");
                 });
 
             modelBuilder.Entity("MeritEd.Core.Entities.User", b =>
@@ -642,6 +704,25 @@ namespace MeritEd.API.Migrations
                         .IsRequired();
 
                     b.Navigation("Course");
+                });
+
+            modelBuilder.Entity("MeritEd.Core.Entities.StudentBadge", b =>
+                {
+                    b.HasOne("MeritEd.Core.Entities.Badge", "Badge")
+                        .WithMany()
+                        .HasForeignKey("BadgeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MeritEd.Core.Entities.Enrollment", "Enrollment")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Badge");
+
+                    b.Navigation("Enrollment");
                 });
 
             modelBuilder.Entity("MeritEd.Core.Entities.XPTransaction", b =>

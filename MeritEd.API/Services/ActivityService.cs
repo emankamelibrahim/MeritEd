@@ -12,13 +12,15 @@ public class ActivityService : IActivityService
     private readonly AppDbContext _context;
     private readonly XPService _xpService;
     private readonly IdentityService _identityService;
+    private readonly IBadgeAwardService _badgeAwardService;
 
     public ActivityService(AppDbContext context, XPService xpService,
-        IdentityService identityService)
+        IdentityService identityService, IBadgeAwardService badgeAwardService)
     {
         _context = context;
         _xpService = xpService;
         _identityService = identityService;
+        _badgeAwardService = badgeAwardService;
     }
 
     public async Task<(bool Success, string Error, Activity? Activity)> SubmitAsync(
@@ -107,6 +109,12 @@ public class ActivityService : IActivityService
         }
 
         await _context.SaveChangesAsync();
+        // Evaluate badges after XP award
+        var isFirstSubmission = await _context.Activities
+            .CountAsync(a => a.EnrollmentId == enrollment.Id
+                && a.Status == ActivityStatus.Approved) == 1;
+
+        await _badgeAwardService.EvaluateAndAwardBadgesAsync(enrollment, isFirstSubmission);
         return (true, string.Empty, activity);
     }
 
@@ -145,6 +153,12 @@ public class ActivityService : IActivityService
             activity.Id);
 
         await _context.SaveChangesAsync();
+        // Evaluate badges after XP award
+        var isFirstSubmission = await _context.Activities
+            .CountAsync(a => a.EnrollmentId == activity.Enrollment.Id
+                && a.Status == ActivityStatus.Approved) == 1;
+
+        await _badgeAwardService.EvaluateAndAwardBadgesAsync(activity.Enrollment, isFirstSubmission);
         return (true, string.Empty, activity);
     }
 
