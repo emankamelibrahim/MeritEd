@@ -171,3 +171,16 @@ This document records every significant architectural decision made during the d
 **Reasoning:** For Sprint 1, refresh token queries are simple single-entity lookups. Introducing a repository abstraction adds a layer of indirection without meaningful benefit at this scale.
 
 **Tradeoff:** Inconsistent with the repository pattern planned for other entities starting Sprint 2. This is a deliberate, temporary simplification — AuthService may be refactored to use a repository once the pattern is established elsewhere, for consistency.
+
+---
+
+## AD-16: Two-Flag Discussion Answers and One-Level Nesting
+
+**Decision:** Replies carry two independent flags: `IsAcceptedAnswer` (set by the thread author, "this solved my problem") and `IsInstructorVerified` (set by the course instructor, "this is technically correct"). Replies can be nested one level deep via `ParentReplyId`.
+
+**Reasoning:**
+- A thread author can accept a wrong answer; the instructor flag gives students an authoritative signal without removing student agency
+- Clarification questions belong under the specific reply, not the whole thread
+- One level keeps the UI and queries simple
+
+**Tradeoff:** Two flags means more UI states to design. Nested replies are loaded flat by EF Core, so the controller filters top-level replies and maps children via `ChildReplies`.

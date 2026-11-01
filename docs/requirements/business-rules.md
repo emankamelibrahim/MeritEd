@@ -59,6 +59,6 @@ They sit between requirements and design — they are not features, they are law
 
 | ID | Rule |
 |---|---|
-| BR-D1 | Only the original thread author can mark a reply as accepted answer. |
+| BR-D1 | Only the original thread author can mark a reply as accepted answer. Only the course instructor can verify a reply. |
 | BR-D2 | No XP is awarded for any discussion action in MVP. |
 | BR-D3 | Only enrolled users and the course instructor can participate in a course discussion. |
