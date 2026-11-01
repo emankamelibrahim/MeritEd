@@ -178,6 +178,89 @@ namespace MeritEd.API.Migrations
                     b.ToTable("Courses");
                 });
 
+            modelBuilder.Entity("MeritEd.Core.Entities.DiscussionReply", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsAcceptedAnswer")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsInstructorVerified")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("ParentReplyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ThreadId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("ParentReplyId");
+
+                    b.HasIndex("ThreadId");
+
+                    b.ToTable("DiscussionReplies");
+                });
+
+            modelBuilder.Entity("MeritEd.Core.Entities.DiscussionThread", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsClosed")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Tags")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("CourseId");
+
+                    b.ToTable("DiscussionThreads");
+                });
+
             modelBuilder.Entity("MeritEd.Core.Entities.Enrollment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -665,6 +748,50 @@ namespace MeritEd.API.Migrations
                     b.Navigation("Instructor");
                 });
 
+            modelBuilder.Entity("MeritEd.Core.Entities.DiscussionReply", b =>
+                {
+                    b.HasOne("MeritEd.Core.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MeritEd.Core.Entities.DiscussionReply", "ParentReply")
+                        .WithMany("ChildReplies")
+                        .HasForeignKey("ParentReplyId");
+
+                    b.HasOne("MeritEd.Core.Entities.DiscussionThread", "Thread")
+                        .WithMany("Replies")
+                        .HasForeignKey("ThreadId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("ParentReply");
+
+                    b.Navigation("Thread");
+                });
+
+            modelBuilder.Entity("MeritEd.Core.Entities.DiscussionThread", b =>
+                {
+                    b.HasOne("MeritEd.Core.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MeritEd.Core.Entities.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Course");
+                });
+
             modelBuilder.Entity("MeritEd.Core.Entities.Enrollment", b =>
                 {
                     b.HasOne("MeritEd.Core.Entities.Course", "Course")
@@ -790,6 +917,16 @@ namespace MeritEd.API.Migrations
             modelBuilder.Entity("MeritEd.Core.Entities.Course", b =>
                 {
                     b.Navigation("Sections");
+                });
+
+            modelBuilder.Entity("MeritEd.Core.Entities.DiscussionReply", b =>
+                {
+                    b.Navigation("ChildReplies");
+                });
+
+            modelBuilder.Entity("MeritEd.Core.Entities.DiscussionThread", b =>
+                {
+                    b.Navigation("Replies");
                 });
 
             modelBuilder.Entity("MeritEd.Core.Entities.Section", b =>

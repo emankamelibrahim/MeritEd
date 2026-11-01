@@ -20,6 +20,8 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>
     public DbSet<XPTransaction> XPTransactions => Set<XPTransaction>();
     public DbSet<Badge> Badges => Set<Badge>();
     public DbSet<StudentBadge> StudentBadges => Set<StudentBadge>();
+    public DbSet<DiscussionThread> DiscussionThreads => Set<DiscussionThread>();
+    public DbSet<DiscussionReply> DiscussionReplies => Set<DiscussionReply>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

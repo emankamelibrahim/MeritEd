@@ -27,6 +27,7 @@ builder.Services.AddScoped<IdentityService>();
 builder.Services.AddScoped<IProgressService, ProgressService>();
 builder.Services.AddScoped<BadgeService>();
 builder.Services.AddScoped<IBadgeAwardService, BadgeAwardService>();
+builder.Services.AddScoped<IDiscussionService, DiscussionService>();
 // Identity
 builder.Services.AddIdentityCore<User>(options =>
 {
