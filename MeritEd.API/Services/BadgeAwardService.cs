@@ -11,11 +11,14 @@ public class BadgeAwardService : IBadgeAwardService
 {
     private readonly AppDbContext _context;
     private readonly BadgeService _badgeService;
+    private readonly IdentityService _identityService;
 
-    public BadgeAwardService(AppDbContext context, BadgeService badgeService)
+    public BadgeAwardService(AppDbContext context, BadgeService badgeService,
+        IdentityService identityService)
     {
         _context = context;
         _badgeService = badgeService;
+        _identityService = identityService;
     }
 
     public async Task EvaluateAndAwardBadgesAsync(Enrollment enrollment, bool isFirstSubmission)
@@ -28,7 +31,10 @@ public class BadgeAwardService : IBadgeAwardService
             .ToListAsync();
 
         var badgesToAward = _badgeService.EvaluateTriggers(
-            enrollment, allBadges, alreadyEarned, isFirstSubmission, false);
+            enrollment, allBadges, alreadyEarned, isFirstSubmission, false).ToList();
+
+        if (badgesToAward.Count == 0)
+            return;
 
         foreach (var badge in badgesToAward)
         {
@@ -42,8 +48,7 @@ public class BadgeAwardService : IBadgeAwardService
 
             _context.StudentBadges.Add(studentBadge);
 
-            // Award XP bonus
-            var transaction = new XPTransaction
+            _context.XPTransactions.Add(new XPTransaction
             {
                 Id = Guid.NewGuid(),
                 EnrollmentId = enrollment.Id,
@@ -51,15 +56,24 @@ public class BadgeAwardService : IBadgeAwardService
                 Category = XPCategory.Badge,
                 SourceId = studentBadge.Id,
                 CreatedAt = DateTime.UtcNow
-            };
+            });
 
-            _context.XPTransactions.Add(transaction);
             enrollment.TotalXP += badge.XPBonus;
-            enrollment.UpdatedAt = DateTime.UtcNow;
         }
 
-        if (badgesToAward.Any())
-            await _context.SaveChangesAsync();
+        var rows = await _context.XPTransactions
+            .Where(t => t.EnrollmentId == enrollment.Id)
+            .Select(t => new { t.Category, t.Amount })
+            .ToListAsync();
+
+        var tuples = rows.Select(t => (t.Category, t.Amount)).ToList();
+        foreach (var badge in badgesToAward)
+            tuples.Add((XPCategory.Badge, badge.XPBonus));
+
+        enrollment.IdentityType = _identityService.Calculate(tuples);
+        enrollment.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
     }
 
     public async Task<IEnumerable<StudentBadge>> GetStudentBadgesAsync(Guid enrollmentId)

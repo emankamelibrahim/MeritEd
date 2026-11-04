@@ -28,6 +28,8 @@ builder.Services.AddScoped<IProgressService, ProgressService>();
 builder.Services.AddScoped<BadgeService>();
 builder.Services.AddScoped<IBadgeAwardService, BadgeAwardService>();
 builder.Services.AddScoped<IDiscussionService, DiscussionService>();
+builder.Services.AddScoped<OutlierService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 // Identity
 builder.Services.AddIdentityCore<User>(options =>
 {

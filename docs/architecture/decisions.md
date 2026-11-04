@@ -184,3 +184,23 @@ This document records every significant architectural decision made during the d
 - One level keeps the UI and queries simple
 
 **Tradeoff:** Two flags means more UI states to design. Nested replies are loaded flat by EF Core, so the controller filters top-level replies and maps children via `ChildReplies`.
+
+---
+
+## AD-17: Outlier Detection via Median ±50%
+
+**Decision:** A student is flagged High or Low when their XP is more than 50% above or below the class median. If the median is 0, nobody is flagged.
+
+**Reasoning:** The median resists skew from one extreme student, and a fixed percentage is easy for instructors to understand. Standard deviation is unstable in small classes.
+
+**Tradeoff:** Fixed thresholds can over-flag in small classes. A configurable threshold is a V2 candidate. Removed students are excluded from the median (their XP history is retained per BR-E3).
+
+---
+
+## AD-18: Badges Evaluated Once Per XP Event
+
+**Decision:** Badge triggers are evaluated once after each XP award. Identity is recalculated after badge bonuses are applied.
+
+**Reasoning:** Keeps the award flow predictable and avoids loops.
+
+**Tradeoff:** A bonus that crosses another badge's threshold, or flips identity into an identity-badge trigger, is picked up on the next XP event, not in the same request.
