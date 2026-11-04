@@ -41,6 +41,7 @@ Currently in architecture and design phase. Implementation begins after full sys
 - [Domain Model](/docs/architecture/domain-model.md)
 - [API Design](/docs/architecture/api-design.md)
 - [Security Strategy](/docs/architecture/security.md)
+- [Unit Tests](/docs/testing/unit-tests.md)
 
 ## Running Locally
 
