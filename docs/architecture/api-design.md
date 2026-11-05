@@ -31,8 +31,9 @@
 |---|---|---|---|
 | POST | `/api/auth/register` | Register a new user | Public |
 | POST | `/api/auth/login` | Login and receive tokens | Public |
-| POST | `/api/auth/refresh` | Refresh access token | Public |
-| POST | `/api/auth/logout` | Invalidate refresh token | Required |
+| POST | `/api/auth/refresh` | Rotate refresh cookie and return a new access token (no body) | Public (cookie) |
+| POST | `/api/auth/logout` | Revoke refresh token and clear the cookie | Public (cookie) |
+
 
 ---
 

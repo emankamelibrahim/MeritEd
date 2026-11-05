@@ -9,8 +9,8 @@ MeritEd uses JWT (JSON Web Tokens) for stateless authentication.
 1. User submits email and password to `POST /api/auth/login`
 2. Server validates credentials against ASP.NET Identity
 3. Server issues a short-lived JWT access token (60 minutes)
-4. Server issues a long-lived refresh token (7 days)
-5. Client stores tokens and attaches JWT to every subsequent request via Authorization header
+4. Server returns the access token in the response body and sets the refresh token as an httpOnly cookie (path `/api/auth`)
+5. Client keeps the access token in memory and attaches it to every request via the Authorization header
 6. When access token expires, client uses refresh token to obtain a new one
 7. If refresh token expires, user must log in again
 

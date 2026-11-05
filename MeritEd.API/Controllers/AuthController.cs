@@ -1,7 +1,7 @@
 ﻿using MeritEd.API.DTOs.Auth;
 using MeritEd.API.Services;
+using MeritEd.Core.Entities;
 using MeritEd.Core.Interfaces.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,26 +11,69 @@ namespace MeritEd.API.Controllers;
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
+    private const string RefreshCookieName = "refreshToken";
+
     private readonly IAuthService _authService;
     private readonly ITokenService _tokenService;
     private readonly IConfiguration _configuration;
 
-    public AuthController(IAuthService authService, ITokenService tokenService, IConfiguration configuration)
+    public AuthController(IAuthService authService, ITokenService tokenService,
+        IConfiguration configuration)
     {
         _authService = authService;
         _tokenService = tokenService;
         _configuration = configuration;
     }
 
+    private void SetRefreshCookie(string token, DateTime expiresAt) =>
+        Response.Cookies.Append(RefreshCookieName, token, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = expiresAt,
+            Path = "/api/auth"
+        });
+
+    private void ClearRefreshCookie() =>
+        Response.Cookies.Delete(RefreshCookieName, new CookieOptions
+        {
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Path = "/api/auth"
+        });
+
+    private async Task<AuthResponse> IssueTokensAsync(User user)
+    {
+        var accessToken = _tokenService.GenerateAccessToken(user);
+        var refreshToken = _tokenService.GenerateRefreshToken();
+        var refreshExpiresAt = DateTime.UtcNow.AddDays(
+            int.Parse(_configuration["Jwt:RefreshTokenExpiryDays"]!));
+
+        await _authService.SaveRefreshTokenAsync(user.Id, refreshToken, refreshExpiresAt);
+        SetRefreshCookie(refreshToken, refreshExpiresAt);
+
+        return new AuthResponse
+        {
+            AccessToken = accessToken,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(
+                int.Parse(_configuration["Jwt:AccessTokenExpiryMinutes"]!)),
+            UserId = user.Id,
+            Email = user.Email!,
+            DisplayName = user.DisplayName,
+            Role = user.Role.ToString(),
+            IsApproved = user.IsApproved
+        };
+    }
+
     [HttpPost("register")]
-    public async Task<IActionResult> Register(MeritEd.API.DTOs.Auth.RegisterRequest request){
+    public async Task<IActionResult> Register(MeritEd.API.DTOs.Auth.RegisterRequest request)
+    {
         var (success, errors, user) = await _authService.RegisterAsync(
             request.Email, request.Password, request.DisplayName, request.Role);
 
         if (!success)
-        {
             return BadRequest(new { status = 400, error = "Registration failed", details = errors });
-        }
 
         return Ok(new
         {
@@ -48,76 +91,37 @@ public class AuthController : ControllerBase
             request.Email, request.Password);
 
         if (!success)
-        {
             return Unauthorized(new { status = 401, error });
-        }
 
-        var accessToken = _tokenService.GenerateAccessToken(user!);
-        var refreshToken = _tokenService.GenerateRefreshToken();
-        var refreshExpiryDays = int.Parse(_configuration["Jwt:RefreshTokenExpiryDays"]!);
-        var refreshExpiresAt = DateTime.UtcNow.AddDays(refreshExpiryDays);
-
-        await _authService.SaveRefreshTokenAsync(user!.Id, refreshToken, refreshExpiresAt);
-
-        var accessExpiryMinutes = int.Parse(_configuration["Jwt:AccessTokenExpiryMinutes"]!);
-
-        return Ok(new AuthResponse
-        {
-            AccessToken = accessToken,
-            RefreshToken = refreshToken,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(accessExpiryMinutes),
-            UserId = user.Id,
-            Email = user.Email!,
-            DisplayName = user.DisplayName,
-            Role = user.Role.ToString(),
-            IsApproved = user.IsApproved
-        });
+        return Ok(await IssueTokensAsync(user!));
     }
 
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh(MeritEd.API.DTOs.Auth.RefreshRequest request)
+    public async Task<IActionResult> Refresh()
     {
-        var (valid, user) = await _authService.ValidateRefreshTokenAsync(request.RefreshToken);
+        var token = Request.Cookies[RefreshCookieName];
+        if (string.IsNullOrEmpty(token))
+            return Unauthorized(new { status = 401, error = "Refresh token missing." });
 
+        var (valid, user) = await _authService.ValidateRefreshTokenAsync(token);
         if (!valid)
         {
+            ClearRefreshCookie();
             return Unauthorized(new { status = 401, error = "Invalid or expired refresh token." });
         }
 
-        var newAccessToken = _tokenService.GenerateAccessToken(user!);
-        var newRefreshToken = _tokenService.GenerateRefreshToken();
-        var refreshExpiryDays = int.Parse(_configuration["Jwt:RefreshTokenExpiryDays"]!);
-        var refreshExpiresAt = DateTime.UtcNow.AddDays(refreshExpiryDays);
-
-        await _authService.RevokeRefreshTokenAsync(request.RefreshToken);
-        await _authService.SaveRefreshTokenAsync(user!.Id, newRefreshToken, refreshExpiresAt);
-
-        var accessExpiryMinutes = int.Parse(_configuration["Jwt:AccessTokenExpiryMinutes"]!);
-
-        return Ok(new AuthResponse
-        {
-            AccessToken = newAccessToken,
-            RefreshToken = newRefreshToken,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(accessExpiryMinutes),
-            UserId = user.Id,
-            Email = user.Email!,
-            DisplayName = user.DisplayName,
-            Role = user.Role.ToString(),
-            IsApproved = user.IsApproved
-        });
+        await _authService.RevokeRefreshTokenAsync(token);
+        return Ok(await IssueTokensAsync(user!));
     }
-    [HttpGet("debug-config")]
-    [AllowAnonymous]
-    public IActionResult DebugConfig()
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
     {
-        var key = _configuration["Jwt:Key"];
-        var issuer = _configuration["Jwt:Issuer"];
-        var audience = _configuration["Jwt:Audience"];
-        return Ok(new
-        {
-            keyLength = key?.Length ?? 0,
-            issuer,
-            audience
-        });
+        var token = Request.Cookies[RefreshCookieName];
+        if (!string.IsNullOrEmpty(token))
+            await _authService.RevokeRefreshTokenAsync(token);
+
+        ClearRefreshCookie();
+        return Ok(new { message = "Logged out." });
     }
 }

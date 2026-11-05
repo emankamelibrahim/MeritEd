@@ -74,6 +74,15 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(
             new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
+var frontendOrigin = builder.Configuration["Cors:FrontendOrigin"]!;
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+        policy.WithOrigins(frontendOrigin)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials());
+});
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -85,10 +94,9 @@ if (app.Environment.IsDevelopment())
     });
 }
 app.UseHttpsRedirection();
-
+app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
 app.Run();

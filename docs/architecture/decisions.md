@@ -204,3 +204,16 @@ This document records every significant architectural decision made during the d
 **Reasoning:** Keeps the award flow predictable and avoids loops.
 
 **Tradeoff:** A bonus that crosses another badge's threshold, or flips identity into an identity-badge trigger, is picked up on the next XP event, not in the same request.
+
+---
+
+## AD-19: Refresh Token in httpOnly Cookie
+
+**Decision:** The refresh token is sent only as an httpOnly, Secure, SameSite=None cookie scoped to `/api/auth`. It is never returned in a JSON body. The access token is returned in the body and held in memory by the frontend.
+
+**Reasoning:**
+- JavaScript can't read the refresh token, so an XSS bug can't steal it
+- The cookie path means the browser sends it only to auth endpoints
+- Matches the strategy already documented in `security.md`
+
+**Tradeoff:** Needs CORS with credentials and a fixed frontend origin. `SameSite=None` makes the refresh endpoint callable cross-site, but CORS stops an attacker's page from reading the response. Rotation limits the damage of any single token. The frontend has to call `/api/auth/refresh` on page load to restore the session, since the access token only lives in memory.
