@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { authApi } from '../api/auth'
 import { refreshSession, setSessionExpiredHandler } from '../api/client'
 import { tokenStore } from '../api/tokenStore'
@@ -14,10 +15,10 @@ const toUser = (r: AuthResponse): AuthUser => ({
 })
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Restore the session on page load using the httpOnly refresh cookie
   useEffect(() => {
     let active = true
     refreshSession()
@@ -34,17 +35,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    setSessionExpiredHandler(() => setUser(null))
+    setSessionExpiredHandler(() => {
+      queryClient.clear()
+      setUser(null)
+    })
     return () => setSessionExpiredHandler(null)
-  }, [])
+  }, [queryClient])
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await authApi.login(email, password)
-    tokenStore.set(res.accessToken)
-    const loggedIn = toUser(res)
-    setUser(loggedIn)
-    return loggedIn
-  }, [])
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const res = await authApi.login(email, password)
+      tokenStore.set(res.accessToken)
+      queryClient.clear()
+      const loggedIn = toUser(res)
+      setUser(loggedIn)
+      return loggedIn
+    },
+    [queryClient],
+  )
 
   const logout = useCallback(async () => {
     try {
@@ -53,8 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // clear local state even if the server call fails
     }
     tokenStore.set(null)
+    queryClient.clear()
     setUser(null)
-  }, [])
+  }, [queryClient])
 
   const value = useMemo(
     () => ({ user, isLoading, login, logout }),
