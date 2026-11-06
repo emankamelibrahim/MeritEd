@@ -217,3 +217,17 @@ This document records every significant architectural decision made during the d
 - Matches the strategy already documented in `security.md`
 
 **Tradeoff:** Needs CORS with credentials and a fixed frontend origin. `SameSite=None` makes the refresh endpoint callable cross-site, but CORS stops an attacker's page from reading the response. Rotation limits the damage of any single token. The frontend has to call `/api/auth/refresh` on page load to restore the session, since the access token only lives in memory.
+
+---
+
+## AD-20: Access Token in Memory with Silent Refresh
+
+**Decision:** The React client keeps the access token in a module-level variable, never in localStorage or sessionStorage. On page load, the client calls `/api/auth/refresh` and the httpOnly cookie restores the session. An Axios interceptor attaches the token to each request. On a 401 it refreshes once and retries the request. Concurrent refreshes share a single in-flight promise.
+
+**Reasoning:**
+- JavaScript-readable storage is exposed to XSS, and a token in memory disappears with the tab
+- Refresh tokens rotate (AD-14), so two parallel refreshes would revoke each other and log the user out. The shared promise prevents that
+- Route guards (`ProtectedRoute`, `PublicOnlyRoute`) wait for the initial refresh before redirecting, so a reload never flashes the login page
+- Together with AD-19, no long-lived credential is ever readable by client JavaScript
+
+**Tradeoff:** Every full page load costs one extra request to restore the session. Role-based route guards are a UX layer only, and the API remains the real authorization boundary (AD-09).
