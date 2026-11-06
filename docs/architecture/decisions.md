@@ -231,3 +231,13 @@ This document records every significant architectural decision made during the d
 - Together with AD-19, no long-lived credential is ever readable by client JavaScript
 
 **Tradeoff:** Every full page load costs one extra request to restore the session. Role-based route guards are a UX layer only, and the API remains the real authorization boundary (AD-09).
+
+---
+
+## AD-21: Course Access Levels
+
+**Decision:** One `CourseAccessService` resolves a user's access to a course as None, Preview, Enrolled or Owner. Course, section and content-item reads all go through it. Non-owners see only published sections and items. Non-enrolled users see section titles but get 403 on content. Archived courses are visible only to the owner and enrolled students.
+
+**Reasoning:** The access rule lives in one place instead of being re-derived per controller. It closes BR-AU4, which was previously unenforced on reads. The syllabus preview lets students decide before enrolling.
+
+**Tradeoff:** One extra query per request to resolve access. A section must be published before its items are visible to students.

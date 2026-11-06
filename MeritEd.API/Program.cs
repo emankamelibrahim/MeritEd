@@ -30,6 +30,7 @@ builder.Services.AddScoped<IBadgeAwardService, BadgeAwardService>();
 builder.Services.AddScoped<IDiscussionService, DiscussionService>();
 builder.Services.AddScoped<OutlierService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<ICourseAccessService, CourseAccessService>();
 // Identity
 builder.Services.AddIdentityCore<User>(options =>
 {

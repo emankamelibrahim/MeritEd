@@ -5,6 +5,7 @@ using System.Text.Json;
 using MeritEd.API.DTOs.ContentItems;
 using MeritEd.Core.Entities;
 using MeritEd.Core.Interfaces.Services;
+using MeritEd.Core.Enums;
 
 namespace MeritEd.API.Controllers;
 
@@ -14,10 +15,12 @@ namespace MeritEd.API.Controllers;
 public class ContentItemsController : ControllerBase
 {
     private readonly IContentItemService _contentItemService;
+    private readonly ICourseAccessService _accessService;
 
-    public ContentItemsController(IContentItemService contentItemService)
+    public ContentItemsController(IContentItemService contentItemService, ICourseAccessService accessService)
     {
         _contentItemService = contentItemService;
+        _accessService = accessService;
     }
 
     private Guid GetCurrentUserId()
@@ -32,7 +35,12 @@ public class ContentItemsController : ControllerBase
         {
             Id = item.Id,
             SectionId = item.SectionId,
-            Type = item.GetType().Name,
+            Type = item switch
+            {
+                FileItem => "File",
+                LinkItem => "Link",
+                _ => item.GetType().Name
+            },
             Title = item.Title,
             OrderIndex = item.OrderIndex,
             IsPublished = item.IsPublished,
@@ -73,8 +81,17 @@ public class ContentItemsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetContentItems(Guid sectionId)
     {
-        var isInstructor = User.IsInRole("Instructor");
-        var items = await _contentItemService.GetContentItemsBySectionAsync(sectionId, isInstructor);
+        var access = await _accessService.GetAccessForSectionAsync(sectionId, GetCurrentUserId());
+
+        if (access == CourseAccess.None)
+            return NotFound();
+
+        if (access == CourseAccess.Preview)
+            return StatusCode(403, new { error = "Enroll in this course to view its content." });
+
+        var items = await _contentItemService.GetContentItemsBySectionAsync(
+            sectionId, access == CourseAccess.Owner);
+
         return Ok(items.Select(MapToResponse));
     }
 

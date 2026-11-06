@@ -46,10 +46,9 @@ public class CourseService : ICourseService
     {
         return await _context.Courses
             .Include(c => c.Instructor)
-            .Include(c => c.Sections)
-                .ThenInclude(s => s.ContentItems)
             .FirstOrDefaultAsync(c => c.Id == courseId);
     }
+
 
     public async Task<IEnumerable<Course>> GetOpenCoursesAsync()
     {
@@ -63,12 +62,31 @@ public class CourseService : ICourseService
     public async Task<IEnumerable<Course>> GetInstructorCoursesAsync(Guid instructorId)
     {
         return await _context.Courses
-            .Include(c => c.Sections)
+            .Include(c => c.Instructor)
             .Where(c => c.InstructorId == instructorId)
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
     }
+    public async Task<IEnumerable<Course>> GetEnrolledCoursesAsync(Guid studentId)
+    {
+        return await _context.Courses
+            .Include(c => c.Instructor)
+            .Where(c => _context.Enrollments.Any(e =>
+                e.CourseId == c.Id && e.StudentId == studentId
+                && e.Status == EnrollmentStatus.Active))
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+    }
 
+    public async Task<HashSet<Guid>> GetEnrolledCourseIdsAsync(Guid studentId)
+    {
+        var ids = await _context.Enrollments
+            .Where(e => e.StudentId == studentId && e.Status == EnrollmentStatus.Active)
+            .Select(e => e.CourseId)
+            .ToListAsync();
+
+        return ids.ToHashSet();
+    }
     public async Task<Course?> UpdateCourseAsync(Guid courseId, Guid instructorId,
         string title, string? description, DateOnly startDate, DateOnly? endDate,
         CourseStatus status, decimal recoveryMultiplier)

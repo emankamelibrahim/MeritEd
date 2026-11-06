@@ -11,11 +11,11 @@ public interface IContentItemService
         string? description, DateTime? dueDate, int? baseXP,
         bool? allowsRecovery, string? questions);
 
-    Task<IEnumerable<ContentItem>> GetContentItemsBySectionAsync(Guid sectionId, bool isInstructor);
-
+    Task<IEnumerable<ContentItem>> GetContentItemsBySectionAsync(Guid sectionId, bool includeUnpublished);
     Task<ContentItem?> UpdatePublishStatusAsync(Guid itemId, Guid instructorId, bool isPublished);
 
     Task<bool> DeleteContentItemAsync(Guid itemId, Guid instructorId);
 
     Task<bool> ReorderContentItemsAsync(Guid sectionId, Guid instructorId, List<Guid> orderedIds);
+    
 }

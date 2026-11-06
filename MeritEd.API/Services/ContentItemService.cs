@@ -82,20 +82,16 @@ public class ContentItemService : IContentItemService
         return item;
     }
 
-    public async Task<IEnumerable<ContentItem>> GetContentItemsBySectionAsync(
-        Guid sectionId, bool isInstructor)
-    {
-        var query = _context.ContentItems
-            .Where(c => c.SectionId == sectionId);
+public async Task<IEnumerable<ContentItem>> GetContentItemsBySectionAsync(
+    Guid sectionId, bool includeUnpublished)
+{
+    var query = _context.ContentItems.Where(c => c.SectionId == sectionId);
 
-        if (!isInstructor)
-            query = query.Where(c => c.IsPublished);
+    if (!includeUnpublished)
+        query = query.Where(c => c.IsPublished && c.Section.IsPublished);
 
-        return await query
-            .OrderBy(c => c.OrderIndex)
-            .ToListAsync();
-    }
-
+    return await query.OrderBy(c => c.OrderIndex).ToListAsync();
+}
     public async Task<ContentItem?> UpdatePublishStatusAsync(
         Guid itemId, Guid instructorId, bool isPublished)
     {

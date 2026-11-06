@@ -42,14 +42,19 @@ public class SectionService : ISectionService
         return section;
     }
 
-    public async Task<IEnumerable<Section>> GetSectionsByCourseAsync(Guid courseId)
-    {
-        return await _context.Sections
-            .Include(s => s.ContentItems)
-            .Where(s => s.CourseId == courseId)
-            .OrderBy(s => s.OrderIndex)
-            .ToListAsync();
-    }
+public async Task<IEnumerable<Section>> GetSectionsByCourseAsync(Guid courseId, bool includeUnpublished)
+{
+    IQueryable<Section> query = _context.Sections.Where(s => s.CourseId == courseId);
+
+    if (includeUnpublished)
+        query = query.Include(s => s.ContentItems);
+    else
+        query = query.Where(s => s.IsPublished)
+                     .Include(s => s.ContentItems.Where(c => c.IsPublished));
+
+    return await query.OrderBy(s => s.OrderIndex).ToListAsync();
+}
+
 
     public async Task<Section?> UpdateSectionAsync(Guid sectionId, Guid instructorId,
         string title, bool isPublished)

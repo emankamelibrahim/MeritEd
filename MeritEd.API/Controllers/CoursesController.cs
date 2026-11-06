@@ -1,11 +1,11 @@
-﻿using MeritEd.API.Data;
-using MeritEd.API.DTOs.Courses;
-using MeritEd.Core.Enums;
-using MeritEd.Core.Interfaces.Services;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using Microsoft.EntityFrameworkCore;
+using MeritEd.API.DTOs.Courses;
+using MeritEd.Core.Entities;
+using MeritEd.Core.Enums;
+using MeritEd.Core.Interfaces.Services;
+
 namespace MeritEd.API.Controllers;
 
 [ApiController]
@@ -14,10 +14,12 @@ namespace MeritEd.API.Controllers;
 public class CoursesController : ControllerBase
 {
     private readonly ICourseService _courseService;
+    private readonly ICourseAccessService _accessService;
 
-    public CoursesController(ICourseService courseService)
+    public CoursesController(ICourseService courseService, ICourseAccessService accessService)
     {
         _courseService = courseService;
+        _accessService = accessService;
     }
 
     private Guid GetCurrentUserId()
@@ -26,91 +28,77 @@ public class CoursesController : ControllerBase
         return Guid.Parse(sub!);
     }
 
-    private bool IsInstructor()
+    private static CourseResponse MapToResponse(Course c, bool isEnrolled = false) => new()
     {
-        return User.IsInRole("Instructor");
-    }
+        Id = c.Id,
+        Title = c.Title,
+        Description = c.Description,
+        StartDate = c.StartDate,
+        EndDate = c.EndDate,
+        Status = c.Status,
+        RecoveryMultiplier = c.RecoveryMultiplier,
+        InstructorId = c.InstructorId,
+        InstructorName = c.Instructor?.DisplayName ?? string.Empty,
+        IsEnrolled = isEnrolled,
+        CreatedAt = c.CreatedAt
+    };
 
     [HttpGet]
     public async Task<IActionResult> GetOpenCourses()
     {
         var courses = await _courseService.GetOpenCoursesAsync();
+        var enrolledIds = await _courseService.GetEnrolledCourseIdsAsync(GetCurrentUserId());
 
-        var response = courses.Select(c => new CourseResponse
-        {
-            Id = c.Id,
-            Title = c.Title,
-            Description = c.Description,
-            StartDate = c.StartDate,
-            EndDate = c.EndDate,
-            Status = c.Status,
-            RecoveryMultiplier = c.RecoveryMultiplier,
-            InstructorId = c.InstructorId,
-            InstructorName = c.Instructor.DisplayName,
-            CreatedAt = c.CreatedAt
-        });
-
-        return Ok(response);
+        return Ok(courses.Select(c => MapToResponse(c, enrolledIds.Contains(c.Id))));
     }
 
-    [HttpGet("{id}")]
+    [HttpGet("mine")]
+    public async Task<IActionResult> GetMyCourses()
+    {
+        var userId = GetCurrentUserId();
+
+        if (User.IsInRole("Instructor"))
+        {
+            var owned = await _courseService.GetInstructorCoursesAsync(userId);
+            return Ok(owned.Select(c => MapToResponse(c)));
+        }
+
+        var enrolled = await _courseService.GetEnrolledCoursesAsync(userId);
+        return Ok(enrolled.Select(c => MapToResponse(c, true)));
+    }
+
+    [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetCourse(Guid id)
     {
+        var access = await _accessService.GetAccessAsync(id, GetCurrentUserId());
+        if (access == CourseAccess.None) return NotFound();
+
         var course = await _courseService.GetCourseByIdAsync(id);
         if (course == null) return NotFound();
 
-        return Ok(new CourseResponse
-        {
-            Id = course.Id,
-            Title = course.Title,
-            Description = course.Description,
-            StartDate = course.StartDate,
-            EndDate = course.EndDate,
-            Status = course.Status,
-            RecoveryMultiplier = course.RecoveryMultiplier,
-            InstructorId = course.InstructorId,
-            InstructorName = course.Instructor.DisplayName,
-            CreatedAt = course.CreatedAt
-        });
+        return Ok(MapToResponse(course, access == CourseAccess.Enrolled));
     }
 
     [HttpPost]
     [Authorize(Roles = "Instructor")]
     public async Task<IActionResult> CreateCourse(CreateCourseRequest request)
     {
-        var instructorId = GetCurrentUserId();
-        var instructor = await _courseService.GetInstructorCoursesAsync(instructorId);
-
         var course = await _courseService.CreateCourseAsync(
-            instructorId,
+            GetCurrentUserId(),
             request.Title,
             request.Description,
             request.StartDate,
             request.EndDate);
 
-        return CreatedAtAction(nameof(GetCourse), new { id = course.Id }, new CourseResponse
-        {
-            Id = course.Id,
-            Title = course.Title,
-            Description = course.Description,
-            StartDate = course.StartDate,
-            EndDate = course.EndDate,
-            Status = course.Status,
-            RecoveryMultiplier = course.RecoveryMultiplier,
-            InstructorId = course.InstructorId,
-            InstructorName = course.Instructor?.DisplayName ?? string.Empty,
-            CreatedAt = course.CreatedAt
-        });
+        return CreatedAtAction(nameof(GetCourse), new { id = course.Id }, MapToResponse(course));
     }
 
     [HttpPut("{id}")]
     [Authorize(Roles = "Instructor")]
     public async Task<IActionResult> UpdateCourse(Guid id, UpdateCourseRequest request)
     {
-        var instructorId = GetCurrentUserId();
-
         var course = await _courseService.UpdateCourseAsync(
-            id, instructorId,
+            id, GetCurrentUserId(),
             request.Title, request.Description,
             request.StartDate, request.EndDate,
             request.Status, request.RecoveryMultiplier);
@@ -118,32 +106,18 @@ public class CoursesController : ControllerBase
         if (course == null)
             return NotFound(new { error = "Course not found or you do not own this course." });
 
-        return Ok(new CourseResponse
-        {
-            Id = course.Id,
-            Title = course.Title,
-            Description = course.Description,
-            StartDate = course.StartDate,
-            EndDate = course.EndDate,
-            Status = course.Status,
-            RecoveryMultiplier = course.RecoveryMultiplier,
-            InstructorId = course.InstructorId,
-            InstructorName = course.Instructor?.DisplayName ?? string.Empty,
-            CreatedAt = course.CreatedAt
-        });
+        return Ok(MapToResponse(course));
     }
 
     [HttpDelete("{id}")]
     [Authorize(Roles = "Instructor")]
     public async Task<IActionResult> DeleteCourse(Guid id)
     {
-        var instructorId = GetCurrentUserId();
-        var result = await _courseService.DeleteCourseAsync(id, instructorId);
+        var result = await _courseService.DeleteCourseAsync(id, GetCurrentUserId());
 
         if (!result)
             return NotFound(new { error = "Course not found or you do not own this course." });
 
         return Ok(new { message = "Course archived successfully." });
     }
-
 }

@@ -21,4 +21,6 @@ public interface ICourseService
     Task<bool> DeleteCourseAsync(Guid courseId, Guid instructorId);
 
     Task<bool> IsInstructorOwnerAsync(Guid courseId, Guid instructorId);
+    Task<IEnumerable<Course>> GetEnrolledCoursesAsync(Guid studentId);
+    Task<HashSet<Guid>> GetEnrolledCourseIdsAsync(Guid studentId);
 }

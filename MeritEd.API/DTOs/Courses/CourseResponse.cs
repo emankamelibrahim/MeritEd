@@ -14,4 +14,5 @@ public class CourseResponse
     public Guid InstructorId { get; set; }
     public string InstructorName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    public bool IsEnrolled { get; set; }
 }

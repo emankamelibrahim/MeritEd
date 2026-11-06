@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using MeritEd.API.DTOs.Sections;
 using MeritEd.Core.Interfaces.Services;
+using MeritEd.Core.Enums;
 
 namespace MeritEd.API.Controllers;
 
@@ -12,11 +13,13 @@ namespace MeritEd.API.Controllers;
 public class SectionsController : ControllerBase
 {
     private readonly ISectionService _sectionService;
-
-    public SectionsController(ISectionService sectionService)
+    private readonly ICourseAccessService _accessService;
+    public SectionsController(ISectionService sectionService, ICourseAccessService accessService)
     {
         _sectionService = sectionService;
+        _accessService = accessService;
     }
+
 
     private Guid GetCurrentUserId()
     {
@@ -27,9 +30,13 @@ public class SectionsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetSections(Guid courseId)
     {
-        var sections = await _sectionService.GetSectionsByCourseAsync(courseId);
+        var access = await _accessService.GetAccessAsync(courseId, GetCurrentUserId());
+        if (access == CourseAccess.None) return NotFound();
 
-        var response = sections.Select(s => new SectionResponse
+        var sections = await _sectionService.GetSectionsByCourseAsync(
+            courseId, access == CourseAccess.Owner);
+
+        return Ok(sections.Select(s => new SectionResponse
         {
             Id = s.Id,
             CourseId = s.CourseId,
@@ -38,9 +45,7 @@ public class SectionsController : ControllerBase
             IsPublished = s.IsPublished,
             CreatedAt = s.CreatedAt,
             ContentItemCount = s.ContentItems.Count
-        });
-
-        return Ok(response);
+        }));
     }
 
     [HttpPost]
