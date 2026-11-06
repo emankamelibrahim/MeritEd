@@ -241,3 +241,13 @@ This document records every significant architectural decision made during the d
 **Reasoning:** The access rule lives in one place instead of being re-derived per controller. It closes BR-AU4, which was previously unenforced on reads. The syllabus preview lets students decide before enrolling.
 
 **Tradeoff:** One extra query per request to resolve access. A section must be published before its items are visible to students.
+
+---
+
+## AD-22: Instructor Approval Checked Against the Database
+
+**Decision:** Course creation checks `IsApproved` in the database on every request. The `approved` JWT claim is informational only and the API never relies on it.
+
+**Reasoning:** A token issued before approval stays valid for up to 60 minutes. Trusting the claim would force a re-login after approval and would let a revoked approval keep working until expiry.
+
+**Tradeoff:** One extra query per course creation, which is negligible. The frontend's `isApproved` refreshes on reload or next login.

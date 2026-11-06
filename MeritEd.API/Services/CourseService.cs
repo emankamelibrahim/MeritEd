@@ -131,4 +131,8 @@ public class CourseService : ICourseService
         return await _context.Courses
             .AnyAsync(c => c.Id == courseId && c.InstructorId == instructorId);
     }
+    public async Task<bool> IsInstructorApprovedAsync(Guid instructorId)
+    {
+        return await _context.Users.AnyAsync(u => u.Id == instructorId && u.IsApproved);
+    }
 }

@@ -79,19 +79,24 @@ public class CoursesController : ControllerBase
         return Ok(MapToResponse(course, access == CourseAccess.Enrolled));
     }
 
-    [HttpPost]
-    [Authorize(Roles = "Instructor")]
-    public async Task<IActionResult> CreateCourse(CreateCourseRequest request)
-    {
-        var course = await _courseService.CreateCourseAsync(
-            GetCurrentUserId(),
-            request.Title,
-            request.Description,
-            request.StartDate,
-            request.EndDate);
+[HttpPost]
+[Authorize(Roles = "Instructor")]
+public async Task<IActionResult> CreateCourse(CreateCourseRequest request)
+{
+    var instructorId = GetCurrentUserId();
 
-        return CreatedAtAction(nameof(GetCourse), new { id = course.Id }, MapToResponse(course));
-    }
+    if (!await _courseService.IsInstructorApprovedAsync(instructorId))
+        return StatusCode(403, new { error = "Your instructor account is pending admin approval." });
+
+    var course = await _courseService.CreateCourseAsync(
+        instructorId,
+        request.Title,
+        request.Description,
+        request.StartDate,
+        request.EndDate);
+
+    return CreatedAtAction(nameof(GetCourse), new { id = course.Id }, MapToResponse(course));
+}
 
     [HttpPut("{id}")]
     [Authorize(Roles = "Instructor")]

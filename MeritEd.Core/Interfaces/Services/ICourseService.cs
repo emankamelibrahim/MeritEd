@@ -23,4 +23,5 @@ public interface ICourseService
     Task<bool> IsInstructorOwnerAsync(Guid courseId, Guid instructorId);
     Task<IEnumerable<Course>> GetEnrolledCoursesAsync(Guid studentId);
     Task<HashSet<Guid>> GetEnrolledCourseIdsAsync(Guid studentId);
+    Task<bool> IsInstructorApprovedAsync(Guid instructorId);
 }
