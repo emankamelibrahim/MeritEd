@@ -14,4 +14,7 @@ public class Activity
     public int? XPAwarded { get; set; }
     public DateTime SubmittedAt { get; set; }
     public DateTime? GradedAt { get; set; }
+    public int? CorrectAnswers { get; set; }
+    public int? TotalQuestions { get; set; }
+    public int[]? SelectedAnswers { get; set; }
 }

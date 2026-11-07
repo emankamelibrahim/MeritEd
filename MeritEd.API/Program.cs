@@ -31,6 +31,7 @@ builder.Services.AddScoped<IDiscussionService, DiscussionService>();
 builder.Services.AddScoped<OutlierService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<ICourseAccessService, CourseAccessService>();
+builder.Services.AddScoped<QuizGradingService>();
 // Identity
 builder.Services.AddIdentityCore<User>(options =>
 {

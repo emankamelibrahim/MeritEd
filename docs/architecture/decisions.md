@@ -251,3 +251,13 @@ This document records every significant architectural decision made during the d
 **Reasoning:** A token issued before approval stays valid for up to 60 minutes. Trusting the claim would force a re-login after approval and would let a revoked approval keep working until expiry.
 
 **Tradeoff:** One extra query per course creation, which is negligible. The frontend's `isApproved` refreshes on reload or next login.
+
+---
+
+## AD-23: Server-Side Quiz Grading
+
+**Decision:** Quizzes are multiple choice with one correct option per question. Students submit chosen option indexes and the server grades them in `QuizGradingService` (Core). XP is `floor(baseXP × correct ÷ total)`, with the recovery multiplier applied in the same floor. Question JSON is validated when the quiz is created. Only the owning instructor receives the `answer` field. Each student gets one non-rejected submission per item, enforced by a filtered unique index.
+
+**Reasoning:** Competency has to be demonstrated, so a click can't earn XP. The previous API returned correct answers to students. Retakes would allow brute-forcing, and repeated recovery submissions allowed XP farming.
+
+**Tradeoff:** No retakes, no partial credit within a question, and no per-question feedback after submitting, since that lets students share answers. Questions stay JSONB (AD-12), so question-level analytics remain a V2 item.

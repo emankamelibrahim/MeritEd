@@ -4,8 +4,9 @@ using System.Security.Claims;
 using System.Text.Json;
 using MeritEd.API.DTOs.ContentItems;
 using MeritEd.Core.Entities;
-using MeritEd.Core.Interfaces.Services;
 using MeritEd.Core.Enums;
+using MeritEd.Core.Interfaces.Services;
+using MeritEd.Core.Services;
 
 namespace MeritEd.API.Controllers;
 
@@ -16,11 +17,14 @@ public class ContentItemsController : ControllerBase
 {
     private readonly IContentItemService _contentItemService;
     private readonly ICourseAccessService _accessService;
+    private readonly QuizGradingService _quizGrading;
 
-    public ContentItemsController(IContentItemService contentItemService, ICourseAccessService accessService)
+    public ContentItemsController(IContentItemService contentItemService,
+        ICourseAccessService accessService, QuizGradingService quizGrading)
     {
         _contentItemService = contentItemService;
         _accessService = accessService;
+        _quizGrading = quizGrading;
     }
 
     private Guid GetCurrentUserId()
@@ -29,7 +33,16 @@ public class ContentItemsController : ControllerBase
         return Guid.Parse(sub!);
     }
 
-    private static ContentItemResponse MapToResponse(ContentItem item)
+    private string? ReadQuestions(Quiz quiz, bool includeAnswers)
+    {
+        if (quiz.Questions == null) return null;
+        if (includeAnswers) return quiz.Questions.RootElement.GetRawText();
+
+        var (valid, _, questions) = _quizGrading.Parse(quiz.Questions.RootElement);
+        return valid ? _quizGrading.StripAnswers(questions) : null;
+    }
+
+    private ContentItemResponse MapToResponse(ContentItem item, bool includeAnswers)
     {
         var response = new ContentItemResponse
         {
@@ -71,7 +84,7 @@ public class ContentItemsController : ControllerBase
                 response.DueDate = quiz.DueDate;
                 response.BaseXP = quiz.BaseXP;
                 response.AllowsRecovery = quiz.AllowsRecovery;
-                response.Questions = quiz.Questions?.RootElement.ToString();
+                response.Questions = ReadQuestions(quiz, includeAnswers);
                 break;
         }
 
@@ -89,10 +102,9 @@ public class ContentItemsController : ControllerBase
         if (access == CourseAccess.Preview)
             return StatusCode(403, new { error = "Enroll in this course to view its content." });
 
-        var items = await _contentItemService.GetContentItemsBySectionAsync(
-            sectionId, access == CourseAccess.Owner);
-
-        return Ok(items.Select(MapToResponse));
+        var isOwner = access == CourseAccess.Owner;
+        var items = await _contentItemService.GetContentItemsBySectionAsync(sectionId, isOwner);
+        return Ok(items.Select(i => MapToResponse(i, includeAnswers: isOwner)));
     }
 
     [HttpPost]
@@ -110,11 +122,19 @@ public class ContentItemsController : ControllerBase
                 request.BaseXP, request.AllowsRecovery, request.Questions);
 
             return CreatedAtAction(nameof(GetContentItems),
-                new { sectionId }, MapToResponse(item));
+                new { sectionId }, MapToResponse(item, includeAnswers: true));
         }
         catch (UnauthorizedAccessException ex)
         {
             return NotFound(new { error = ex.Message });
+        }
+        catch (JsonException)
+        {
+            return BadRequest(new { error = "Questions must be valid JSON." });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
         }
     }
 
@@ -130,7 +150,7 @@ public class ContentItemsController : ControllerBase
         if (item == null)
             return NotFound(new { error = "Content item not found or you do not own this course." });
 
-        return Ok(MapToResponse(item));
+        return Ok(MapToResponse(item, includeAnswers: true));
     }
 
     [HttpDelete("{itemId}")]

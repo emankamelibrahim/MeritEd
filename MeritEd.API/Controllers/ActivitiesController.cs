@@ -4,6 +4,7 @@ using System.Security.Claims;
 using MeritEd.API.DTOs.Activities;
 using MeritEd.Core.Entities;
 using MeritEd.Core.Interfaces.Services;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace MeritEd.API.Controllers;
 
@@ -39,23 +40,25 @@ public class ActivitiesController : ControllerBase
             SubmittedAt = activity.SubmittedAt,
             GradedAt = activity.GradedAt,
             StudentName = activity.Enrollment?.Student?.DisplayName,
-            StudentEmail = activity.Enrollment?.Student?.Email
+            StudentEmail = activity.Enrollment?.Student?.Email,
+            CorrectAnswers = activity.CorrectAnswers,
+            TotalQuestions = activity.TotalQuestions,
         };
     }
 
-    [HttpPost("api/items/{contentItemId}/submit")]
-    [Authorize(Roles = "Student")]
-    public async Task<IActionResult> Submit(Guid contentItemId)
-    {
-        var studentId = GetCurrentUserId();
-        var (success, error, activity) = await _activityService.SubmitAsync(
-            studentId, contentItemId);
+[HttpPost("api/items/{contentItemId}/submit")]
+[Authorize(Roles = "Student")]
+public async Task<IActionResult> Submit(Guid contentItemId,
+    [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] SubmitActivityRequest? request)
+{
+    var (success, error, activity) = await _activityService.SubmitAsync(
+        GetCurrentUserId(), contentItemId, request?.Answers);
 
-        if (!success)
-            return BadRequest(new { error });
+    if (!success)
+        return BadRequest(new { error });
 
-        return Ok(MapToResponse(activity!));
-    }
+    return Ok(MapToResponse(activity!));
+}
 
     [HttpGet("api/courses/{courseId}/activities")]
     [Authorize(Roles = "Instructor")]
@@ -102,4 +105,5 @@ public class ActivitiesController : ControllerBase
 
         return Ok(MapToResponse(activity!));
     }
+    
 }

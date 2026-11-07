@@ -34,4 +34,19 @@ public class XPServiceTests
     [Fact]
     public void IsRecoveryEligible_NotYetDue_ReturnsFalse()
         => Assert.False(_sut.IsRecoveryEligible(DateTime.UtcNow.AddDays(1), true));
+
+    [Theory]
+    [InlineData(100, 3, 3, false, 0.70, 100)]
+    [InlineData(50, 2, 3, false, 0.70, 33)]
+    [InlineData(100, 0, 4, false, 0.70, 0)]
+    [InlineData(100, 1, 2, true, 0.70, 35)]
+    [InlineData(50, 2, 3, true, 0.75, 25)]
+    public void CalculateScoredXP_ScalesByFractionCorrect(
+        int baseXP, int correct, int total, bool isRecovery, double multiplier, int expected)
+        => Assert.Equal(expected,
+            _sut.CalculateScoredXP(baseXP, correct, total, isRecovery, (decimal)multiplier));
+
+    [Fact]
+    public void CalculateScoredXP_ZeroQuestions_ReturnsZero()
+        => Assert.Equal(0, _sut.CalculateScoredXP(100, 0, 0, false, 0.70m));
 }

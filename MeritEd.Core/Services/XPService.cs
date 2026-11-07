@@ -18,4 +18,12 @@ public class XPService
         if (dueDate == null) return false;
         return DateTime.UtcNow > dueDate;
     }
+    public int CalculateScoredXP(int baseXP, int correct, int total,
+    bool isRecovery, decimal recoveryMultiplier)
+{
+    if (total <= 0) return 0;
+
+    var multiplier = isRecovery ? recoveryMultiplier : 1m;
+    return (int)Math.Floor((decimal)baseXP * correct * multiplier / total);
+}
 }

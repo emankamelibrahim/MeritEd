@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using MeritEd.API.Data;
 using MeritEd.Core.Entities;
 using MeritEd.Core.Enums;
@@ -12,19 +13,22 @@ public class ActivityService : IActivityService
     private readonly AppDbContext _context;
     private readonly XPService _xpService;
     private readonly IdentityService _identityService;
+    private readonly QuizGradingService _quizGrading;
     private readonly IBadgeAwardService _badgeAwardService;
 
     public ActivityService(AppDbContext context, XPService xpService,
-        IdentityService identityService, IBadgeAwardService badgeAwardService)
+        IdentityService identityService, QuizGradingService quizGrading,
+        IBadgeAwardService badgeAwardService)
     {
         _context = context;
         _xpService = xpService;
         _identityService = identityService;
+        _quizGrading = quizGrading;
         _badgeAwardService = badgeAwardService;
     }
 
     public async Task<(bool Success, string Error, Activity? Activity)> SubmitAsync(
-        Guid studentId, Guid contentItemId)
+        Guid studentId, Guid contentItemId, IReadOnlyList<int>? answers)
     {
         var contentItem = await _context.ContentItems
             .Include(c => c.Section)
@@ -34,7 +38,7 @@ public class ActivityService : IActivityService
         if (contentItem == null)
             return (false, "Content item not found.", null);
 
-        if (!contentItem.IsPublished)
+        if (!contentItem.IsPublished || !contentItem.Section.IsPublished)
             return (false, "This content item is not available.", null);
 
         var enrollment = await _context.Enrollments
@@ -45,39 +49,53 @@ public class ActivityService : IActivityService
         if (enrollment == null)
             return (false, "You are not enrolled in this course.", null);
 
-        // Only assignments and quizzes are submittable
         if (contentItem is not Assignment && contentItem is not Quiz)
             return (false, "This content item cannot be submitted.", null);
 
-        // Check if already submitted and approved
-        var existingApproved = await _context.Activities
-            .AnyAsync(a => a.EnrollmentId == enrollment.Id
-                && a.ContentItemId == contentItemId
-                && a.Status == ActivityStatus.Approved
-                && !a.IsRecovery);
-
-        if (existingApproved)
-            return (false, "You have already completed this activity.", null);
-
-        // Determine if this is a recovery submission
-        DateTime? dueDate = contentItem is Assignment a ? a.DueDate :
-            contentItem is Quiz q ? q.DueDate : null;
-        bool allowsRecovery = contentItem is Assignment a2 ? a2.AllowsRecovery :
-            contentItem is Quiz q2 && q2.AllowsRecovery;
-
-        bool isRecovery = _xpService.IsRecoveryEligible(dueDate, allowsRecovery);
-
-        // Check if already submitted a non-recovery and it's not past due
-        if (!isRecovery)
+        var (dueDate, allowsRecovery) = contentItem switch
         {
-            var existingPending = await _context.Activities
-                .AnyAsync(a => a.EnrollmentId == enrollment.Id
-                    && a.ContentItemId == contentItemId
-                    && a.Status == ActivityStatus.Submitted
-                    && !a.IsRecovery);
+            Assignment asg => (asg.DueDate, asg.AllowsRecovery),
+            Quiz qz => (qz.DueDate, qz.AllowsRecovery),
+            _ => ((DateTime?)null, false)
+        };
 
-            if (existingPending)
-                return (false, "You have already submitted this activity.", null);
+        var isPastDue = dueDate.HasValue && DateTime.UtcNow > dueDate.Value;
+        if (isPastDue && !allowsRecovery)
+            return (false, "The deadline has passed and this activity does not accept late work.", null);
+
+        var isRecovery = _xpService.IsRecoveryEligible(dueDate, allowsRecovery);
+
+        var alreadySubmitted = await _context.Activities.AnyAsync(a =>
+            a.EnrollmentId == enrollment.Id
+            && a.ContentItemId == contentItemId
+            && a.Status != ActivityStatus.Rejected);
+
+        if (alreadySubmitted)
+            return (false, "You have already submitted this activity.", null);
+
+        var quiz = contentItem as Quiz;
+        int[]? selected = null;
+        int correct = 0, total = 0;
+
+        if (quiz != null)
+        {
+            if (quiz.Questions == null)
+                return (false, "This quiz has no questions yet.", null);
+
+            var (valid, _, questions) = _quizGrading.Parse(quiz.Questions.RootElement);
+            if (!valid)
+                return (false, "This quiz is not set up correctly. Please contact your instructor.", null);
+
+            if (answers == null)
+                return (false, "Answers are required to submit a quiz.", null);
+
+            var (gradable, gradeError, correctCount) = _quizGrading.Grade(questions, answers);
+            if (!gradable)
+                return (false, gradeError, null);
+
+            correct = correctCount;
+            total = questions.Count;
+            selected = answers.ToArray();
         }
 
         var activity = new Activity
@@ -87,34 +105,41 @@ public class ActivityService : IActivityService
             ContentItemId = contentItemId,
             IsRecovery = isRecovery,
             Status = ActivityStatus.Submitted,
-            SubmittedAt = DateTime.UtcNow
+            SubmittedAt = DateTime.UtcNow,
+            CorrectAnswers = quiz != null ? correct : null,
+            TotalQuestions = quiz != null ? total : null,
+            SelectedAnswers = selected
         };
 
         _context.Activities.Add(activity);
 
-        // Quizzes auto-award XP on submission
-        if (contentItem is Quiz quiz)
+        if (quiz != null)
         {
-            var baseXP = quiz.BaseXP;
-            var recoveryMultiplier = contentItem.Section.Course.RecoveryMultiplier;
-            var xpAwarded = _xpService.CalculateXP(baseXP, isRecovery, recoveryMultiplier);
+            var xp = _xpService.CalculateScoredXP(quiz.BaseXP, correct, total,
+                isRecovery, contentItem.Section.Course.RecoveryMultiplier);
 
             activity.Status = ActivityStatus.Approved;
-            activity.XPAwarded = xpAwarded;
+            activity.XPAwarded = xp;
             activity.GradedAt = DateTime.UtcNow;
 
-            await AwardXPAsync(enrollment, xpAwarded,
-                isRecovery ? XPCategory.Recovery : XPCategory.Assessment,
-                activity.Id);
+            if (xp > 0)
+                await AwardXPAsync(enrollment, xp,
+                    isRecovery ? XPCategory.Recovery : XPCategory.Assessment, activity.Id);
         }
 
-        await _context.SaveChangesAsync();
-        // Evaluate badges after XP award
-        var isFirstSubmission = await _context.Activities
-            .CountAsync(a => a.EnrollmentId == enrollment.Id
-                && a.Status == ActivityStatus.Approved) == 1;
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            return (false, "You have already submitted this activity.", null);
+        }
 
-        await _badgeAwardService.EvaluateAndAwardBadgesAsync(enrollment, isFirstSubmission);
+        if (quiz != null)
+            await EvaluateBadgesAsync(enrollment);
+
         return (true, string.Empty, activity);
     }
 
@@ -138,27 +163,27 @@ public class ActivityService : IActivityService
         if (activity.Status != ActivityStatus.Submitted)
             return (false, "Activity is not pending approval.", null);
 
-        var baseXP = activity.ContentItem is Assignment assignment ? assignment.BaseXP :
-            activity.ContentItem is Quiz quiz ? quiz.BaseXP : 0;
+        var baseXP = activity.ContentItem switch
+        {
+            Assignment assignment => assignment.BaseXP,
+            Quiz quiz => quiz.BaseXP,
+            _ => 0
+        };
 
-        var recoveryMultiplier = activity.Enrollment.Course.RecoveryMultiplier;
-        var xpAwarded = _xpService.CalculateXP(baseXP, activity.IsRecovery, recoveryMultiplier);
+        var xp = _xpService.CalculateXP(baseXP, activity.IsRecovery,
+            activity.Enrollment.Course.RecoveryMultiplier);
 
         activity.Status = ActivityStatus.Approved;
-        activity.XPAwarded = xpAwarded;
+        activity.XPAwarded = xp;
         activity.GradedAt = DateTime.UtcNow;
 
-        await AwardXPAsync(activity.Enrollment, xpAwarded,
-            activity.IsRecovery ? XPCategory.Recovery : XPCategory.Assessment,
-            activity.Id);
+        if (xp > 0)
+            await AwardXPAsync(activity.Enrollment, xp,
+                activity.IsRecovery ? XPCategory.Recovery : XPCategory.Assessment, activity.Id);
 
         await _context.SaveChangesAsync();
-        // Evaluate badges after XP award
-        var isFirstSubmission = await _context.Activities
-            .CountAsync(a => a.EnrollmentId == activity.Enrollment.Id
-                && a.Status == ActivityStatus.Approved) == 1;
+        await EvaluateBadgesAsync(activity.Enrollment);
 
-        await _badgeAwardService.EvaluateAndAwardBadgesAsync(activity.Enrollment, isFirstSubmission);
         return (true, string.Empty, activity);
     }
 
@@ -223,10 +248,19 @@ public class ActivityService : IActivityService
             .ToListAsync();
     }
 
+    private async Task EvaluateBadgesAsync(Enrollment enrollment)
+    {
+        var isFirstSubmission = await _context.Activities
+            .CountAsync(a => a.EnrollmentId == enrollment.Id
+                && a.Status == ActivityStatus.Approved) == 1;
+
+        await _badgeAwardService.EvaluateAndAwardBadgesAsync(enrollment, isFirstSubmission);
+    }
+
     private async Task AwardXPAsync(Enrollment enrollment, int amount,
         XPCategory category, Guid sourceId)
     {
-        var transaction = new XPTransaction
+        _context.XPTransactions.Add(new XPTransaction
         {
             Id = Guid.NewGuid(),
             EnrollmentId = enrollment.Id,
@@ -234,24 +268,19 @@ public class ActivityService : IActivityService
             Category = category,
             SourceId = sourceId,
             CreatedAt = DateTime.UtcNow
-        };
-
-        _context.XPTransactions.Add(transaction);
+        });
 
         enrollment.TotalXP += amount;
 
-        var transactions = await _context.XPTransactions
+        var rows = await _context.XPTransactions
             .Where(t => t.EnrollmentId == enrollment.Id)
             .Select(t => new { t.Category, t.Amount })
             .ToListAsync();
 
-        var tuples = transactions
-            .Select(t => (t.Category, t.Amount))
-            .ToList();
-
+        var tuples = rows.Select(t => (t.Category, t.Amount)).ToList();
         tuples.Add((category, amount));
 
         enrollment.IdentityType = _identityService.Calculate(tuples);
         enrollment.UpdatedAt = DateTime.UtcNow;
     }
-}
+}   

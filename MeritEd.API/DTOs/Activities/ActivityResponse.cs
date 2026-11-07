@@ -14,4 +14,6 @@ public class ActivityResponse
     public DateTime? GradedAt { get; set; }
     public string? StudentName { get; set; }
     public string? StudentEmail { get; set; }
+    public int? CorrectAnswers { get; set; }
+    public int? TotalQuestions { get; set; }
 }

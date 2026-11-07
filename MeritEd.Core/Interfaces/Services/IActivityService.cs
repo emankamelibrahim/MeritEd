@@ -4,8 +4,8 @@ namespace MeritEd.Core.Interfaces.Services;
 
 public interface IActivityService
 {
-    Task<(bool Success, string Error, Activity? Activity)> SubmitAsync(
-        Guid studentId, Guid contentItemId);
+Task<(bool Success, string Error, Activity? Activity)> SubmitAsync(
+    Guid studentId, Guid contentItemId, IReadOnlyList<int>? answers);
 
     Task<(bool Success, string Error, Activity? Activity)> ApproveAsync(
         Guid instructorId, Guid activityId);

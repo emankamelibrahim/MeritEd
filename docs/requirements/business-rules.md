@@ -15,6 +15,9 @@ They sit between requirements and design — they are not features, they are law
 | BR-P6 | Recovery XP is calculated as: base XP × recovery multiplier. |
 | BR-P7 | The default recovery multiplier is 0.7. Instructors may configure this per course. |
 | BR-P8 | A student may not submit a recovery attempt if the original was already approved. |
+| BR-P9 | Quiz XP is `floor(baseXP × correct ÷ total)`; recovery attempts apply the multiplier in the same calculation. |
+| BR-P10 | A student may have only one non-rejected submission per activity. This supersedes BR-P8. |
+| BR-P11 | Submissions after the due date are rejected unless the activity allows recovery. |
 
 ## Badge Rules
 

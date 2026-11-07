@@ -59,5 +59,11 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>
         builder.Entity<StudentBadge>()
            .HasIndex(sb => new { sb.EnrollmentId, sb.BadgeId })
            .IsUnique();
+
+        // Status 2 = Rejected: a student may resubmit only after a rejection
+        builder.Entity<Activity>()
+            .HasIndex(a => new { a.EnrollmentId, a.ContentItemId })
+            .IsUnique()
+            .HasFilter("\"Status\" <> 2");
     }
 }

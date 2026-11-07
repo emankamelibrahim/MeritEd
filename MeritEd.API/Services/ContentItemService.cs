@@ -3,6 +3,7 @@ using MeritEd.API.Data;
 using MeritEd.Core.Entities;
 using MeritEd.Core.Enums;
 using MeritEd.Core.Interfaces.Services;
+using MeritEd.Core.Services;
 using System.Text.Json;
 
 namespace MeritEd.API.Services;
@@ -10,10 +11,12 @@ namespace MeritEd.API.Services;
 public class ContentItemService : IContentItemService
 {
     private readonly AppDbContext _context;
+    private readonly QuizGradingService _quizGrading;
 
-    public ContentItemService(AppDbContext context)
+    public ContentItemService(AppDbContext context, QuizGradingService quizGrading)
     {
         _context = context;
+        _quizGrading = quizGrading;
     }
 
     public async Task<ContentItem> CreateContentItemAsync(Guid sectionId, Guid instructorId,
@@ -62,9 +65,7 @@ public class ContentItemService : IContentItemService
                 DueDate = dueDate,
                 BaseXP = baseXP ?? 0,
                 AllowsRecovery = allowsRecovery ?? false,
-                Questions = questions != null
-                    ? JsonDocument.Parse(questions)
-                    : null
+                Questions = ParseQuestions(questions)
             },
             _ => throw new ArgumentException("Invalid content item type.")
         };
@@ -152,4 +153,18 @@ public async Task<IEnumerable<ContentItem>> GetContentItemsBySectionAsync(
         await _context.SaveChangesAsync();
         return true;
     }
+    private JsonDocument? ParseQuestions(string? questions)
+{
+    if (string.IsNullOrWhiteSpace(questions)) return null;
+
+    var document = JsonDocument.Parse(questions);
+    var (valid, error, _) = _quizGrading.Parse(document.RootElement);
+    if (!valid)
+    {
+        document.Dispose();
+        throw new ArgumentException(error);
+    }
+
+    return document;
+}
 }

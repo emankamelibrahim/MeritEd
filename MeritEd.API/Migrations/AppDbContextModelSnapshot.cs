@@ -32,6 +32,9 @@ namespace MeritEd.API.Migrations
                     b.Property<Guid>("ContentItemId")
                         .HasColumnType("uuid");
 
+                    b.Property<int?>("CorrectAnswers")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("EnrollmentId")
                         .HasColumnType("uuid");
 
@@ -41,11 +44,17 @@ namespace MeritEd.API.Migrations
                     b.Property<bool>("IsRecovery")
                         .HasColumnType("boolean");
 
+                    b.PrimitiveCollection<int[]>("SelectedAnswers")
+                        .HasColumnType("integer[]");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("SubmittedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("TotalQuestions")
+                        .HasColumnType("integer");
 
                     b.Property<int?>("XPAwarded")
                         .HasColumnType("integer");
@@ -54,7 +63,9 @@ namespace MeritEd.API.Migrations
 
                     b.HasIndex("ContentItemId");
 
-                    b.HasIndex("EnrollmentId");
+                    b.HasIndex("EnrollmentId", "ContentItemId")
+                        .IsUnique()
+                        .HasFilter("\"Status\" <> 2");
 
                     b.ToTable("Activities");
                 });
