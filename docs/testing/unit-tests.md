@@ -8,11 +8,12 @@ The unit tests cover the four pure-logic services in `MeritEd.Core`. These servi
 
 | Service | Responsibility | Tests |
 |---|---|---|
-| [XPService](#xpservice) | XP amount calculation, recovery eligibility | 9 |
+| [XPService](#xpservice) | XP calculation, scored quiz XP, recovery eligibility | 15 |
 | [IdentityService](#identityservice) | Derives student identity from the XP ledger | 7 |
 | [BadgeService](#badgeservice) | Evaluates which badges a student has earned | 11 |
 | [OutlierService](#outlierservice) | Class median and High/Low outlier classification | 12 |
-| **Total** | | **39** |
+| [QuizGradingService](#quizgradingservice) | Validates, grades and sanitizes quiz questions | 18 |
+| **Total** | | **63** |
 
 **Not covered:** database wiring and orchestration (`ActivityService`, `BadgeAwardService`, `DashboardService`) and HTTP endpoints. These need integration tests (see [Known Gaps](#known-gaps)).
 
@@ -78,6 +79,19 @@ Recovery is available only when the activity allows it, has a due date, and the 
 | UT-XP-07 | `IsRecoveryEligible_RecoveryNotAllowed_ReturnsFalse` | Instructor disabled recovery | now − 1 day, false | `false` |
 | UT-XP-08 | `IsRecoveryEligible_NoDueDate_ReturnsFalse` | No deadline means nothing can be late | null, true | `false` |
 | UT-XP-09 | `IsRecoveryEligible_NotYetDue_ReturnsFalse` | Recovery is unavailable before the deadline (BR-P5) | now + 1 day, true | `false` |
+
+### CalculateScoredXP
+
+Quiz XP is `floor(baseXP × correct × multiplier ÷ total)`. The multiplier is 1 for on-time work and the course recovery multiplier for recovery work. It multiplies before dividing so exact results (25.0) don't become 24.999… and floor down.
+
+| ID | Test | Purpose | Input (baseXP, correct/total, isRecovery, multiplier) | Expected |
+|---|---|---|---|---|
+| UT-XP-10 | `CalculateScoredXP_ScalesByFractionCorrect` | Full marks earn full XP | 100, 3/3, false, 0.70 | `100` |
+| UT-XP-11 | same (theory row) | Partial score floors | 50, 2/3, false, 0.70 | `33` |
+| UT-XP-12 | same (theory row) | Zero correct earns nothing | 100, 0/4, false, 0.70 | `0` |
+| UT-XP-13 | same (theory row) | Recovery multiplier applied | 100, 1/2, true, 0.70 | `35` |
+| UT-XP-14 | same (theory row) | Recovery and partial score together, exact result | 50, 2/3, true, 0.75 | `25` |
+| UT-XP-15 | `CalculateScoredXP_ZeroQuestions_ReturnsZero` | Guards division by zero | 100, 0/0, false, 0.70 | `0` |
 
 ---
 
@@ -177,6 +191,52 @@ A student is `High` when XP is more than 50% above the median, `Low` when more t
 
 ---
 
+## QuizGradingService
+
+**Source:** `MeritEd.Core/Services/QuizGradingService.cs`
+**Tests:** `MeritEd.Tests/Services/QuizGradingServiceTests.cs`
+
+**Setup:** `new QuizGradingService()`. Tests parse JSON with a `Json(string)` helper and reuse a valid two-question quiz (`Valid`).
+
+Question JSON shape: `[{"question": "...", "options": ["a", "b"], "answer": 0}]`, where `answer` is the zero-based index of the one correct option.
+
+### Parse
+
+| ID | Test | Purpose | Input | Expected |
+|---|---|---|---|---|
+| UT-QZ-01 | `Parse_ValidQuiz_ReturnsQuestions` | A well-formed quiz parses | Valid two-question quiz | valid, 2 questions, answers and option counts preserved |
+| UT-QZ-02 | `Parse_InvalidShapes_AreRejected` | Root must be an array | `{}` | invalid |
+| UT-QZ-03 | same (theory row) | Quiz must not be empty | `[]` | invalid |
+| UT-QZ-04 | same (theory row) | Root must be an array, not a string | `"text"` | invalid |
+| UT-QZ-05 | same (theory row) | Question text required | no `question` property | invalid |
+| UT-QZ-06 | same (theory row) | At least two options | one option | invalid |
+| UT-QZ-07 | same (theory row) | Answer must be a valid index | `answer: 2` with 2 options | invalid |
+| UT-QZ-08 | same (theory row) | Negative answer index rejected | `answer: -1` | invalid |
+| UT-QZ-09 | same (theory row) | Answer required | no `answer` property | invalid |
+| UT-QZ-10 | same (theory row) | Blank option text rejected | `["a", ""]` | invalid |
+| UT-QZ-11 | `Parse_MoreThanMaxQuestions_IsRejected` | Size cap (50) enforced | 51 questions | invalid |
+
+### Grade
+
+| ID | Test | Purpose | Input (answers) | Expected |
+|---|---|---|---|---|
+| UT-QZ-12 | `Grade_AllCorrect_ReturnsFullCount` | Full marks | `[1, 0]` | valid, 2 correct |
+| UT-QZ-13 | `Grade_PartiallyCorrect_CountsOnlyCorrectOnes` | Partial score | `[1, 1]` | 1 correct |
+| UT-QZ-14 | `Grade_AllWrong_ReturnsZero` | No correct answers | `[0, 2]` | 0 correct |
+| UT-QZ-15 | `Grade_WrongNumberOfAnswers_IsInvalid` | Every question must be answered | `[1]` | invalid |
+| UT-QZ-16 | `Grade_OptionOutOfRange_IsInvalid` | Cannot choose a non-existent option | `[1, 3]` | invalid |
+| UT-QZ-17 | `Grade_NegativeIndex_IsInvalid` | Negative index rejected | `[-1, 0]` | invalid |
+
+### StripAnswers
+
+| ID | Test | Purpose | Input | Expected |
+|---|---|---|---|---|
+| UT-QZ-18 | `StripAnswers_RemovesAnswerFieldAndKeepsTheRest` | Students never receive correct answers (AD-24) | Valid quiz | no `"answer"` in output; questions and options intact |
+
+> UT-QZ-18 covers the sanitizing logic. That the controller actually uses it for students is verified manually (Postman check #3) until integration tests exist.
+
+---
+
 ## Known Gaps
 
 | Gap | Why it matters | Planned |
@@ -186,6 +246,8 @@ A student is `High` when XP is more than 50% above the median, `Low` when more t
 | Dashboard aggregation | Queries and grouping happen in `DashboardService` | Integration tests (Sprint 13) |
 | Authorization and ownership checks | Enforced in controllers and services against the database | Integration tests (Sprint 13) |
 | Badges triggering other badges in a single request | By design (AD-18), but not asserted by a test | Integration tests (Sprint 13) |
+| Quiz submission flow in `ActivityService` | Duplicate-submission index, late-work rejection and ledger writes happen against the database | Integration tests (Sprint 13) |
+| Answer stripping in `ContentItemsController` | The helper is unit tested, the role-based choice of response isn't | Integration tests (Sprint 13) |
 
 ## Maintaining These Tests
 
