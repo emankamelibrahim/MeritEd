@@ -57,6 +57,9 @@
 | GET | `/api/courses/{id}` | Get course details | Required |
 | PUT | `/api/courses/{id}` | Update course details | Instructor (owner) |
 | DELETE | `/api/courses/{id}` | Archive a course | Instructor (owner) |
+| GET | `/api/courses/mine` | List enrolled courses | Required |
+| GET | `/api/courses/mine` | List owned courses | Instructor (owner) |
+
 
 ---
 
@@ -152,3 +155,12 @@
 | GET | `/api/dashboard/student` | Get student dashboard data | Student |
 | GET | `/api/dashboard/instructor` | Get instructor dashboard data | Instructor |
 | GET | `/api/courses/{courseId}/dashboard` | Get course-level dashboard | Instructor (owner) |
+
+---
+
+### Users 
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/api/users/pending` | Get instructors pending approval | Admin |
+| PUT | `/api/users/{id}/approve` | Approve pending instructor | Admin |

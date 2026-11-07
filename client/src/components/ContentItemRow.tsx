@@ -1,7 +1,13 @@
+import type { ReactNode } from 'react'
 import type { ContentItem } from '../types/course'
 import { formatDate, safeUrl } from '../utils/format'
 
-export default function ContentItemRow({ item }: { item: ContentItem }) {
+interface Props {
+  item: ContentItem
+  actions?: ReactNode
+}
+
+export default function ContentItemRow({ item, actions }: Props) {
   const graded = item.type === 'Assignment' || item.type === 'Quiz'
   const url =
     item.type === 'Link' ? safeUrl(item.externalUrl)
@@ -31,6 +37,7 @@ export default function ContentItemRow({ item }: { item: ContentItem }) {
             Draft
           </span>
         )}
+        {actions && <div className="ml-auto flex flex-wrap items-center gap-1">{actions}</div>}
       </div>
       {graded && (
         <p className="mt-1 text-sm text-muted">

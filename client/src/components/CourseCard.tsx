@@ -3,10 +3,15 @@ import type { Course } from '../types/course'
 import { formatDate } from '../utils/format'
 import StatusChip from './StatusChip'
 
-export default function CourseCard({ course }: { course: Course }) {
+interface Props {
+  course: Course
+  to?: string
+}
+
+export default function CourseCard({ course, to }: Props) {
   return (
     <Link
-      to={`/courses/${course.id}`}
+      to={to ?? `/courses/${course.id}`}
       className="flex flex-col rounded-2xl bg-surface p-5 shadow-sm transition hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-3">

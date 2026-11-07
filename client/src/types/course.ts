@@ -44,3 +44,27 @@ export interface ContentItem {
   allowsRecovery: boolean | null
   questions: string | null
 }
+export interface CreateCoursePayload {
+  title: string
+  description: string | null
+  startDate: string
+  endDate: string | null
+}
+
+export interface UpdateCoursePayload extends CreateCoursePayload {
+  status: CourseStatus
+  recoveryMultiplier: number
+}
+
+export interface CreateItemPayload {
+  type: ContentItemType
+  title: string
+  body?: string
+  fileUrl?: string
+  externalUrl?: string
+  description?: string
+  dueDate?: string
+  baseXP?: number
+  allowsRecovery?: boolean
+  questions?: string
+}

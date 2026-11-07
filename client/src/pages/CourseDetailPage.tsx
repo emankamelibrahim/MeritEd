@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useCourse, useEnrollmentMutations, useSections } from '../api/courseQueries'
 import { useAuth } from '../auth/useAuth'
 import ErrorBox from '../components/ErrorBox'
@@ -25,6 +25,12 @@ export default function CourseDetailPage() {
   const canViewContent = course.isEnrolled || isOwner
   const actionError = enroll.error ?? leave.error
 
+  const lockedMessage = !isStudent
+    ? 'Content is visible to enrolled students only'
+    : course.status === 'Open'
+      ? 'Enroll to view the content'
+      : 'Enrollment is closed'
+
   function handleLeave() {
     if (window.confirm('Leave this course? Your progress is kept if you rejoin later.')) {
       leave.mutate()
@@ -45,6 +51,15 @@ export default function CourseDetailPage() {
               {course.endDate && ` – ${formatDate(course.endDate)}`}
             </p>
           </div>
+
+          {isOwner && (
+            <Link
+              to={`/instructor/courses/${course.id}/manage`}
+              className="rounded-lg bg-navy px-4 py-2 font-semibold text-white hover:opacity-90"
+            >
+              Manage course
+            </Link>
+          )}
 
           {isStudent &&
             (course.isEnrolled ? (
@@ -86,7 +101,12 @@ export default function CourseDetailPage() {
           <p className="text-muted">No content has been published yet.</p>
         )}
         {sectionsQuery.data?.map((section) => (
-          <SectionCard key={section.id} section={section} canViewContent={canViewContent} />
+          <SectionCard
+            key={section.id}
+            section={section}
+            canViewContent={canViewContent}
+            lockedMessage={lockedMessage}
+          />
         ))}
       </div>
     </>

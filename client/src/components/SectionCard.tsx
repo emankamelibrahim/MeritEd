@@ -7,9 +7,10 @@ import ErrorBox from './ErrorBox'
 interface Props {
   section: Section
   canViewContent: boolean
+  lockedMessage?: string
 }
 
-export default function SectionCard({ section, canViewContent }: Props) {
+export default function SectionCard({ section, canViewContent, lockedMessage }: Props) {
   const items = useSectionItems(section.id, canViewContent)
 
   return (
@@ -25,7 +26,8 @@ export default function SectionCard({ section, canViewContent }: Props) {
 
       {!canViewContent && (
         <p className="mt-2 text-sm text-muted">
-          {section.contentItemCount} item(s) · Enroll to view the content
+          {section.contentItemCount} item(s)
+          {lockedMessage && ` · ${lockedMessage}`}
         </p>
       )}
 
